@@ -2,10 +2,10 @@
 
 import csv
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox
 
-# --- HÀM MỞ FILE CSV ---
-def mo_file():
+# --- HÀM ĐỌC FILE CSV ---
+def doc_file_csv():
     filepath = filedialog.askopenfilename(
         title="Chọn file CSV để mở",
         filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")]
@@ -14,20 +14,35 @@ def mo_file():
         return
 
     try:
-        # Mở file CSV đúng cách theo docs (newline='', delimiter=',', quotechar='"')
         with open(filepath, newline='', encoding='utf-8') as csvfile:
-            reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-            text.delete("1.0", tk.END)
-            for row in reader:
-                # Ghép các cột bằng dấu phẩy để hiển thị trong ô văn bản
-                text.insert(tk.END, ', '.join(row) + '\n')
+            reader = csv.reader(csvfile)
+            rows = list(reader)
 
-        messagebox.showinfo("Thành công", f"Đã mở file CSV:\n{filepath}")
+        if not rows:
+            messagebox.showwarning("Thông báo", "File CSV rỗng.")
+            return
+
+        # Xóa dữ liệu cũ
+        for col in tree.get_children():
+            tree.delete(col)
+        tree["columns"] = rows[0]
+        tree["show"] = "headings"
+
+        # Tạo tiêu đề cột
+        for col in rows[0]:
+            tree.heading(col, text=col)
+            tree.column(col, width=100, anchor="center")
+
+        # Thêm dữ liệu vào bảng
+        for row in rows[1:]:
+            tree.insert("", tk.END, values=row)
+
+        messagebox.showinfo("Thành công", f"Đã đọc file:\n{filepath}")
     except Exception as e:
         messagebox.showerror("Lỗi", f"Không thể đọc file:\n{e}")
 
 # --- HÀM GHI FILE CSV ---
-def ghi_file():
+def ghi_file_csv():
     filepath = filedialog.asksaveasfilename(
         title="Lưu file CSV mới",
         defaultextension=".csv",
@@ -37,47 +52,56 @@ def ghi_file():
         return
 
     try:
-        # Mở file ở chế độ ghi (newline='' tránh dòng trống thừa)
         with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
-            writer = csv.writer(
-                csvfile,
-                delimiter=',',
-                quotechar='"',
-                quoting=csv.QUOTE_MINIMAL
-            )
+            writer = csv.writer(csvfile)
 
-            # Lấy dữ liệu trong ô văn bản
-            data = text.get("1.0", tk.END).strip().split("\n")
-            for line in data:
-                # Mỗi dòng tách theo dấu phẩy thành list
-                writer.writerow([col.strip() for col in line.split(",")])
+            # Lấy tiêu đề cột
+            columns = tree["columns"]
+            writer.writerow(columns)
 
-        messagebox.showinfo("Thành công", f"Đã ghi file CSV:\n{filepath}")
+            # Lấy dữ liệu từ Treeview
+            for item in tree.get_children():
+                row = tree.item(item)["values"]
+                writer.writerow(row)
+
+        messagebox.showinfo("Thành công", f"Đã ghi file:\n{filepath}")
     except Exception as e:
         messagebox.showerror("Lỗi", f"Không thể ghi file:\n{e}")
 
 # --- GIAO DIỆN TKINTER ---
 root = tk.Tk()
-root.title("Đọc & Ghi File CSV (theo Python.org)")
-root.geometry("800x500")
+root.title("ỨNG DỤNG ĐỌC & GHI FILE CSV")
+root.geometry("1000x600")
 
-# Frame chứa nút
-frame = tk.Frame(root)
-frame.pack(pady=10)
+# Tiêu đề
+label = tk.Label(root, text="ỨNG DỤNG ĐỌC & GHI FILE CSV", font=("Arial", 14, "bold"))
+label.pack(pady=10)
 
-btn_open = tk.Button(frame, text="📂 Mở CSV", width=15, command=mo_file)
-btn_open.pack(side=tk.LEFT, padx=10)
+# Nút chức năng
+frame_btn = tk.Frame(root)
+frame_btn.pack(pady=10)
 
-btn_save = tk.Button(frame, text="💾 Ghi CSV", width=15, command=ghi_file)
-btn_save.pack(side=tk.LEFT, padx=10)
+btn_doc = tk.Button(frame_btn, text="📂 Đọc file CSV", width=20, command=doc_file_csv)
+btn_doc.pack(side=tk.LEFT, padx=20)
 
-# Ô hiển thị nội dung file
-text = tk.Text(root, wrap=tk.NONE)
-text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+btn_ghi = tk.Button(frame_btn, text="💾 Ghi ra file CSV mới", width=20, command=ghi_file_csv)
+btn_ghi.pack(side=tk.LEFT, padx=20)
 
-# Thanh cuộn dọc
-scroll = tk.Scrollbar(text, command=text.yview)
-scroll.pack(side=tk.RIGHT, fill=tk.Y)
-text.config(yscrollcommand=scroll.set)
+# Bảng hiển thị CSV
+frame_table = tk.Frame(root)
+frame_table.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+# Thanh cuộn
+scrollbar_y = tk.Scrollbar(frame_table, orient=tk.VERTICAL)
+scrollbar_y.pack(side=tk.RIGHT, fill=tk.Y)
+
+scrollbar_x = tk.Scrollbar(frame_table, orient=tk.HORIZONTAL)
+scrollbar_x.pack(side=tk.BOTTOM, fill=tk.X)
+
+tree = ttk.Treeview(frame_table, yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
+tree.pack(fill=tk.BOTH, expand=True)
+
+scrollbar_y.config(command=tree.yview)
+scrollbar_x.config(command=tree.xview)
 
 root.mainloop()
